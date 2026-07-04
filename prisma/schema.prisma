@@ -1,0 +1,55 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  items        WaitingItem[]
+}
+
+model WaitingItem {
+  id                 String           @id @default(cuid())
+  title              String
+  counterpartyName   String
+  counterpartyType   String           // PERSON | COMPANY | INSTITUTION
+  askType            String           // REPLY | DOCUMENT | PAYMENT | DECISION | DELIVERY | OTHER
+  status             String           @default("WAITING") // WAITING | DUE_SOON | OVERDUE | RESOLVED
+  expectedBy         DateTime?
+  typicalLatencyDays Int
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  lastContactAt      DateTime         @default(now())
+  urgencyScore       Int              @default(0)
+  notes              String?
+  resolutionNote     String?
+  actualLatencyDays  Int?
+  notifiedDueSoon    Boolean          @default(false)
+  notifiedOverdue    Boolean          @default(false)
+  followUps          FollowUp[]
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FollowUp {
+  id            String      @id @default(cuid())
+  waitingItemId String
+  waitingItem   WaitingItem @relation(fields: [waitingItemId], references: [id], onDelete: Cascade)
+  date          DateTime    @default(now())
+  channel       String      @default("email")
+  draftedByAi   Boolean     @default(false)
+  notes         String?
+}
+
