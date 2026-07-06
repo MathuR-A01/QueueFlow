@@ -76,7 +76,7 @@ Format your response as valid JSON exactly like this:
 Keep messages concise, channel-appropriate for email, and don't include a subject line.`;
 
     const response = await client.messages.create({
-      model: "claude-opus-4-5",
+      model: "claude-3-5-sonnet-latest",
       max_tokens: 600,
       messages: [{ role: "user", content: prompt }],
     });

@@ -101,10 +101,11 @@ Clone the repository and install dependencies:
 npm install
 ```
 
-### 2. Database Migration
-Initialize and migrate the SQLite database via Prisma:
+### 2. Database Setup
+Ensure you have configured `DATABASE_URL` (PostgreSQL) in your `.env.local` file.
+Then initialize the database, run migrations, and seed initial demo data:
 ```bash
-npx prisma db push
+npm run db:setup
 ```
 
 ### 3. Running the Server

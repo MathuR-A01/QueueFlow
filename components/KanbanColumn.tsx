@@ -18,6 +18,7 @@ interface KanbanColumnProps {
   items: WaitingItemWithFollowUps[];
   onNudge: (item: WaitingItemWithFollowUps) => void;
   onResolve: (item: WaitingItemWithFollowUps) => void;
+  onEdit: (item: WaitingItemWithFollowUps) => void;
   onDelete: (id: string) => void;
 }
 
@@ -30,6 +31,7 @@ export default function KanbanColumn({
   items,
   onNudge,
   onResolve,
+  onEdit,
   onDelete,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -70,6 +72,7 @@ export default function KanbanColumn({
                 item={item}
                 onNudge={onNudge}
                 onResolve={onResolve}
+                onEdit={onEdit}
                 onDelete={onDelete}
               />
             ))

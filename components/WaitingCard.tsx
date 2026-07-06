@@ -3,7 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatDistanceToNow, format } from "date-fns";
-import { Zap, CheckCircle2, Trash2, GitBranch } from "lucide-react";
+import { Zap, CheckCircle2, Trash2, GitBranch, Edit } from "lucide-react";
 import { getUrgencyBg } from "@/lib/urgency";
 import {
   ASK_TYPE_COLORS,
@@ -18,6 +18,7 @@ interface WaitingCardProps {
   isDragging?: boolean;
   onNudge: (item: WaitingItemWithFollowUps) => void;
   onResolve: (item: WaitingItemWithFollowUps) => void;
+  onEdit: (item: WaitingItemWithFollowUps) => void;
   onDelete: (id: string) => void;
 }
 
@@ -26,8 +27,11 @@ export default function WaitingCard({
   isDragging,
   onNudge,
   onResolve,
+  onEdit,
   onDelete,
 }: WaitingCardProps) {
+  const isResolved = item.status === "RESOLVED";
+
   const {
     attributes,
     listeners,
@@ -35,7 +39,7 @@ export default function WaitingCard({
     transform,
     transition,
     isDragging: isSortableDragging,
-  } = useSortable({ id: item.id });
+  } = useSortable({ id: item.id, disabled: isResolved });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -43,7 +47,6 @@ export default function WaitingCard({
   };
 
   const statusClass = `card-${item.status.toLowerCase().replace("_", "_")}`;
-  const isResolved = item.status === "RESOLVED";
 
   const lastContactDate = new Date(item.lastContactAt);
   const daysWaited = Math.max(
@@ -162,6 +165,17 @@ export default function WaitingCard({
             >
               <Zap size={11} />
               Nudge
+            </button>
+            <button
+              id={`btn-edit-${item.id}`}
+              className="btn-ghost btn-edit"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(item);
+              }}
+              title="Edit item details"
+            >
+              <Edit size={11} />
             </button>
             <button
               id={`btn-resolve-${item.id}`}

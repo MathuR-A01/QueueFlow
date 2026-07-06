@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
+import { computeUrgency } from "@/lib/urgency";
 
-// PATCH /api/items/[id] - update status, notes, expected_by
+// PATCH /api/items/[id] - update status, notes, expected_by, title, counterparty, ask type
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -25,20 +26,48 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, notes, expectedBy, lastContactAt } = body;
+    const {
+      status,
+      notes,
+      expectedBy,
+      lastContactAt,
+      title,
+      counterpartyName,
+      counterpartyType,
+      askType,
+    } = body;
+
+    const updatedData: any = {
+      ...(status !== undefined ? { status } : {}),
+      ...(notes !== undefined ? { notes } : {}),
+      ...(expectedBy !== undefined
+        ? { expectedBy: expectedBy ? new Date(expectedBy) : null }
+        : {}),
+      ...(lastContactAt !== undefined
+        ? { lastContactAt: new Date(lastContactAt) }
+        : {}),
+      ...(title !== undefined ? { title } : {}),
+      ...(counterpartyName !== undefined ? { counterpartyName } : {}),
+      ...(counterpartyType !== undefined ? { counterpartyType } : {}),
+      ...(askType !== undefined ? { askType } : {}),
+    };
+
+    // Merge to recompute urgency correctly
+    const mergedItem = {
+      ...existing,
+      ...updatedData,
+    };
+
+    // Recompute urgency if not RESOLVED
+    if (mergedItem.status !== "RESOLVED") {
+      const urgency = computeUrgency(mergedItem);
+      updatedData.status = urgency.status;
+      updatedData.urgencyScore = urgency.urgencyScore;
+    }
 
     const item = await prisma.waitingItem.update({
       where: { id },
-      data: {
-        ...(status !== undefined ? { status } : {}),
-        ...(notes !== undefined ? { notes } : {}),
-        ...(expectedBy !== undefined
-          ? { expectedBy: expectedBy ? new Date(expectedBy) : null }
-          : {}),
-        ...(lastContactAt !== undefined
-          ? { lastContactAt: new Date(lastContactAt) }
-          : {}),
-      },
+      data: updatedData,
       include: { followUps: { orderBy: { date: "asc" } } },
     });
 

@@ -20,7 +20,7 @@ export default function ReportsView({ items }: ReportsViewProps) {
   });
 
   const followUpMonths = items.flatMap((item) =>
-    item.followUps.map((fu) => {
+    (item.followUps || []).map((fu) => {
       const date = new Date(fu.date);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     })
@@ -55,7 +55,7 @@ export default function ReportsView({ items }: ReportsViewProps) {
 
   // Count all follow-ups (nudges) created during the selected month across all items
   const totalNudgesInFiltered = items.reduce((acc, item) => {
-    const nudgesInMonth = item.followUps.filter((fu) => {
+    const nudgesInMonth = (item.followUps || []).filter((fu) => {
       const date = new Date(fu.date);
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       return dateStr === selectedDate;
