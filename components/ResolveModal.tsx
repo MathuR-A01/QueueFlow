@@ -62,27 +62,24 @@ export default function ResolveModal({
   );
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <div className="drawer-overlay">
       <div
-        className="modal"
+        className="drawer"
         role="dialog"
         aria-modal="true"
         aria-label="Resolve waiting item"
       >
-        <div className="modal-header">
+        <div className="drawer-header">
           <div>
-            <div className="modal-title">Mark as Resolved</div>
-            <div className="modal-subtitle">
+            <div className="drawer-title">Mark as Resolved</div>
+            <div className="drawer-subtitle">
               {COUNTERPARTY_ICONS[item.counterpartyType as CounterpartyType]}{" "}
               {item.counterpartyName} ·{" "}
               {ASK_TYPE_LABELS[item.askType as AskType]}
             </div>
           </div>
           <button
-            className="modal-close"
+            className="drawer-close"
             onClick={onClose}
             id="btn-resolve-modal-close"
           >
@@ -90,8 +87,8 @@ export default function ResolveModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+          <div className="drawer-body">
             {/* Summary */}
             <div
               style={{
@@ -152,7 +149,7 @@ export default function ResolveModal({
             </div>
           </div>
 
-          <div className="modal-footer">
+          <div className="drawer-footer">
             <button
               type="button"
               className="btn-secondary"

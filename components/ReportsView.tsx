@@ -13,14 +13,21 @@ interface ReportsViewProps {
 export default function ReportsView({ items }: ReportsViewProps) {
   const resolvedItems = items.filter((i) => i.status === "RESOLVED");
 
-  // Get list of months/years available in resolved data
+  // Get list of months/years available in resolved data or follow-up logs
+  const resolutionMonths = resolvedItems.map((item) => {
+    const date = new Date(item.updatedAt); // resolution date is updatedAt for RESOLVED items
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const followUpMonths = items.flatMap((item) =>
+    item.followUps.map((fu) => {
+      const date = new Date(fu.date);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    })
+  );
+
   const availableDates = Array.from(
-    new Set(
-      resolvedItems.map((item) => {
-        const date = new Date(item.updatedAt); // resolution date is updatedAt for RESOLVED items
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      })
-    )
+    new Set([...resolutionMonths, ...followUpMonths])
   ).sort().reverse();
 
   // Selected date fallback to current month if no data
@@ -46,10 +53,15 @@ export default function ReportsView({ items }: ReportsViewProps) {
         )
       : 0;
 
-  const totalNudgesInFiltered = filteredResolved.reduce(
-    (acc, i) => acc + i.followUps.length,
-    0
-  );
+  // Count all follow-ups (nudges) created during the selected month across all items
+  const totalNudgesInFiltered = items.reduce((acc, item) => {
+    const nudgesInMonth = item.followUps.filter((fu) => {
+      const date = new Date(fu.date);
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      return dateStr === selectedDate;
+    });
+    return acc + nudgesInMonth.length;
+  }, 0);
 
   const formatMonthTitle = (dateStr: string) => {
     const [year, month] = dateStr.split("-");
@@ -59,6 +71,31 @@ export default function ReportsView({ items }: ReportsViewProps) {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportCSV = () => {
+    const headers = ["Title", "Counterparty", "Type", "Latency (Days)", "Resolution Note", "Date Resolved"];
+    const rows = filteredResolved.map((item) => [
+      item.title,
+      item.counterpartyName,
+      ASK_TYPE_LABELS[item.askType as AskType] || item.askType,
+      item.actualLatencyDays ?? "",
+      item.resolutionNote || "",
+      format(new Date(item.updatedAt), "yyyy-MM-dd HH:mm"),
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `QueueFlow_Report_${selectedDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -85,13 +122,22 @@ export default function ReportsView({ items }: ReportsViewProps) {
           </select>
         </div>
 
-        <button
-          onClick={handlePrint}
-          className="btn-secondary"
-          style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px" }}
-        >
-          🖨️ Print / Save PDF
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            onClick={handleExportCSV}
+            className="btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", borderColor: "var(--accent-primary)", color: "var(--accent-primary)" }}
+          >
+            📥 Export to CSV
+          </button>
+          <button
+            onClick={handlePrint}
+            className="btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px" }}
+          >
+            🖨️ Print / Save PDF
+          </button>
+        </div>
       </div>
 
       {/* Monthly Summary Statistics cards */}

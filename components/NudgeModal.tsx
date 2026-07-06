@@ -26,22 +26,25 @@ interface NudgeModalProps {
     },
     parentItem?: any
   ) => void;
+  onFollowUpDeleted: (updatedItem: WaitingItemWithFollowUps) => void;
 }
 
 export default function NudgeModal({
   item,
   onClose,
   onFollowUpLogged,
+  onFollowUpDeleted,
 }: NudgeModalProps) {
   const [variants, setVariants] = useState<NudgeVariant[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedVariant, setSelectedVariant] = useState<NudgeVariant | null>(
+  const [selectedVariant, setSelectedVariant] = useState<NudgeVariant[] | NudgeVariant | null>(
     null
   );
   const [copiedTone, setCopiedTone] = useState<string | null>(null);
   const [isLogging, setIsLogging] = useState(false);
   const [isFallback, setIsFallback] = useState(false);
   const [error, setError] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
 
   const lastContactDate = new Date(item.lastContactAt);
   const daysWaited = Math.max(
@@ -94,7 +97,9 @@ export default function NudgeModal({
   };
 
   const handleLogFollowUp = async () => {
-    if (!selectedVariant) return;
+    // If selectedVariant is array or null, we check type
+    const variantObj = Array.isArray(selectedVariant) ? selectedVariant[0] : selectedVariant;
+    if (!variantObj) return;
     setIsLogging(true);
 
     try {
@@ -104,7 +109,9 @@ export default function NudgeModal({
         body: JSON.stringify({
           channel: "email",
           draftedByAi: !isFallback,
-          notes: `${selectedVariant.tone} tone: "${selectedVariant.message.substring(0, 80)}..."`,
+          notes: `${variantObj.tone} tone: "${variantObj.message.substring(0, 80)}..."`,
+          recipientEmail: recipientEmail.trim() || undefined,
+          emailBody: variantObj.message,
         }),
       });
 
@@ -127,20 +134,17 @@ export default function NudgeModal({
   };
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <div className="drawer-overlay">
       <div
-        className="modal modal-wide"
+        className="drawer drawer-wide"
         role="dialog"
         aria-modal="true"
         aria-label="Draft follow-up"
       >
-        <div className="modal-header">
+        <div className="drawer-header">
           <div>
-            <div className="modal-title">Draft Follow-up</div>
-            <div className="modal-subtitle">
+            <div className="drawer-title">Draft Follow-up</div>
+            <div className="drawer-subtitle">
               {COUNTERPARTY_ICONS[item.counterpartyType as CounterpartyType]}{" "}
               {item.counterpartyName} ·{" "}
               {ASK_TYPE_LABELS[item.askType as AskType]} ·{" "}
@@ -150,7 +154,7 @@ export default function NudgeModal({
             </div>
           </div>
           <button
-            className="modal-close"
+            className="drawer-close"
             onClick={onClose}
             id="btn-nudge-modal-close"
           >
@@ -158,7 +162,7 @@ export default function NudgeModal({
           </button>
         </div>
 
-        <div className="modal-body">
+        <div className="drawer-body">
           {/* Context summary */}
           <div
             style={{
@@ -265,27 +269,42 @@ export default function NudgeModal({
                         {variant.tone === "Firm" && "🎯"}{" "}
                         {variant.tone}
                       </div>
-                      <button
-                        id={`btn-copy-${variant.tone.toLowerCase()}`}
-                        className="btn-ghost"
-                        style={{ fontSize: "10px", padding: "2px 6px" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopy(variant);
-                        }}
-                      >
-                        {copiedTone === variant.tone ? (
-                          <>
-                            <Check size={10} />
-                            <span className="copy-success">Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={10} />
-                            Copy
-                          </>
-                        )}
-                      </button>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          id={`btn-copy-${variant.tone.toLowerCase()}`}
+                          className="btn-ghost"
+                          style={{ fontSize: "10px", padding: "2px 6px" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopy(variant);
+                          }}
+                        >
+                          {copiedTone === variant.tone ? (
+                            <>
+                              <Check size={10} />
+                              <span className="copy-success">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={10} />
+                              Copy
+                            </>
+                          )}
+                        </button>
+                        <button
+                          id={`btn-wa-${variant.tone.toLowerCase()}`}
+                          className="btn-ghost"
+                          style={{ fontSize: "10px", padding: "2px 6px", color: "#22c55e", borderColor: "rgba(34, 197, 94, 0.2)" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const waUrl = `https://wa.me/?text=${encodeURIComponent(variant.message)}`;
+                            window.open(waUrl, "_blank");
+                          }}
+                          title="Send draft message via WhatsApp"
+                        >
+                          🟢 WhatsApp
+                        </button>
+                      </div>
                     </div>
                     <div className="nudge-message">{variant.message}</div>
                   </button>
@@ -302,9 +321,115 @@ export default function NudgeModal({
               </button>
             </>
           )}
+
+          {/* Automated Email Dispatch Section */}
+          {variants && (
+            <div style={{ marginTop: "20px", borderTop: "1px solid var(--border-subtle)", paddingTop: "16px" }}>
+              <div style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-primary)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>✉️</span> Automated Email Dispatch (via Resend)
+              </div>
+              <div className="form-group" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label className="form-label" htmlFor="input-recipient-email" style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
+                  Recipient Email Address (Optional)
+                </label>
+                <input
+                  id="input-recipient-email"
+                  type="email"
+                  className="form-input"
+                  placeholder="e.g. contact@example.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  style={{ fontSize: "12px", padding: "8px 12px" }}
+                />
+                <span className="form-hint" style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  Provide an email to automatically send the selected draft tone via Resend integration. Leave blank to log follow-up without sending.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Prior Follow-up History */}
+          {item.followUps && item.followUps.length > 0 && (
+            <div style={{ marginTop: "24px", borderTop: "1px solid var(--border-subtle)", paddingTop: "16px" }}>
+              <div style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-primary)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>📜</span> Prior Follow-up History ({item.followUps.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "200px", overflowY: "auto", paddingRight: "4px" }}>
+                {item.followUps.map((fu) => (
+                  <div
+                    key={fu.id}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.02)",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      fontSize: "12px",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1, paddingRight: "12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        <span style={{ fontWeight: "600", color: "var(--text-secondary)" }}>
+                          📧 Email Sent
+                        </span>
+                        {fu.draftedByAi && (
+                          <span style={{ fontSize: "9px", background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", padding: "1px 6px", borderRadius: "99px", fontWeight: "600" }}>
+                            AI Drafted
+                          </span>
+                        )}
+                        <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>
+                          {format(new Date(fu.date), "MMM d, yyyy h:mm a")}
+                        </span>
+                      </div>
+                      {fu.notes && (
+                        <div style={{ color: "var(--text-muted)", fontStyle: "italic", lineHeight: "1.4", wordBreak: "break-word" }}>
+                          {fu.notes}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      id={`btn-delete-followup-${fu.id}`}
+                      className="btn-ghost"
+                      style={{ color: "#f43f5e", padding: "4px 8px", fontSize: "11px", height: "auto", minWidth: "fit-content" }}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                         if (confirm("Are you sure you want to delete this follow-up record? This will recalculate the card's last contact time.")) {
+                           try {
+                             const res = await fetch(`/api/items/${item.id}/followup`, {
+                               method: "DELETE",
+                               headers: { "Content-Type": "application/json" },
+                               body: JSON.stringify({ followUpId: fu.id }),
+                             });
+                             if (!res.ok) throw new Error("Failed to delete follow-up");
+                             const data = await res.json();
+                             if (data.parentItem) {
+                               const mappedItem = {
+                                 ...data.parentItem,
+                                 createdAt: new Date(data.parentItem.createdAt),
+                                 lastContactAt: new Date(data.parentItem.lastContactAt),
+                                 expectedBy: data.parentItem.expectedBy ? new Date(data.parentItem.expectedBy) : null,
+                                 followUps: data.parentItem.followUps.map((f: any) => ({ ...f, date: new Date(f.date) })),
+                               };
+                               onFollowUpDeleted(mappedItem);
+                             }
+                           } catch (err) {
+                             console.error("Delete follow-up error:", err);
+                           }
+                         }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="modal-footer">
+        <div className="drawer-footer">
           <button
             className="btn-secondary"
             onClick={onClose}
@@ -317,13 +442,15 @@ export default function NudgeModal({
               id="btn-log-followup"
               className="btn-primary"
               onClick={handleLogFollowUp}
-              disabled={!selectedVariant || isLogging}
+              disabled={(!selectedVariant || Array.isArray(selectedVariant) && selectedVariant.length === 0) || isLogging}
             >
               {isLogging ? (
                 <>
-                  <Loader2 size={13} />
-                  Logging...
+                  <Loader2 size={13} className="spinner" />
+                  {recipientEmail.trim() ? "Sending & Logging..." : "Logging..."}
                 </>
+              ) : recipientEmail.trim() ? (
+                "Send Email & Log Follow-up"
               ) : (
                 "Log Follow-up & Close"
               )}

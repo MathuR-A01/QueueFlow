@@ -18,6 +18,7 @@ import AddItemModal from "./AddItemModal";
 import NudgeModal from "./NudgeModal";
 import ResolveModal from "./ResolveModal";
 import FilterBar from "./FilterBar";
+import EditItemModal from "./EditItemModal";
 import AnalyticsView from "./AnalyticsView";
 import ReportsView from "./ReportsView";
 import type { LucideIcon } from "lucide-react";
@@ -75,8 +76,10 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
   const [showAddModal, setShowAddModal] = useState(false);
   const [nudgeItem, setNudgeItem] = useState<WaitingItemWithFollowUps | null>(null);
   const [resolveItem, setResolveItem] = useState<WaitingItemWithFollowUps | null>(null);
+  const [editItem, setEditItem] = useState<WaitingItemWithFollowUps | null>(null);
   const [filterAskType, setFilterAskType] = useState("ALL");
   const [filterCounterpartyType, setFilterCounterpartyType] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const sensors = useSensors(
@@ -102,6 +105,15 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
       item.counterpartyType !== filterCounterpartyType
     )
       return false;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = item.title.toLowerCase().includes(query);
+      const matchName = item.counterpartyName.toLowerCase().includes(query);
+      const matchNotes = item.notes ? item.notes.toLowerCase().includes(query) : false;
+      if (!matchTitle && !matchName && !matchNotes) return false;
+    }
+
     return true;
   });
 
@@ -126,6 +138,9 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
 
     const activeItemObj = items.find((i) => i.id === activeId);
     if (!activeItemObj) return;
+
+    // Prevent dragging resolved items back to active columns
+    if (activeItemObj.status === "RESOLVED") return;
 
     // Check if dragged over a column vs over a card
     let newStatus = overId as string;
@@ -168,6 +183,16 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
         prev.map((i) => (i.id === updatedItem.id ? updatedItem : i))
       );
       setResolveItem(null);
+    },
+    []
+  );
+
+  const handleItemUpdated = useCallback(
+    (updatedItem: WaitingItemWithFollowUps) => {
+      setItems((prev) =>
+        prev.map((i) => (i.id === updatedItem.id ? updatedItem : i))
+      );
+      setEditItem(null);
     },
     []
   );
@@ -345,8 +370,10 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
           <FilterBar
             filterAskType={filterAskType}
             filterCounterpartyType={filterCounterpartyType}
+            searchQuery={searchQuery}
             onAskTypeChange={setFilterAskType}
             onCounterpartyTypeChange={setFilterCounterpartyType}
+            onSearchChange={setSearchQuery}
           />
 
           <main className="board-container">
@@ -368,6 +395,7 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
                     items={getColumnItems(col.id)}
                     onNudge={setNudgeItem}
                     onResolve={setResolveItem}
+                    onEdit={setEditItem}
                     onDelete={handleDeleteItem}
                   />
                 ))}
@@ -381,6 +409,7 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
                       isDragging
                       onNudge={() => {}}
                       onResolve={() => {}}
+                      onEdit={() => {}}
                       onDelete={() => {}}
                     />
                   </div>
@@ -416,6 +445,12 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
           item={nudgeItem}
           onClose={() => setNudgeItem(null)}
           onFollowUpLogged={(fu, parentItem) => handleFollowUpLogged(nudgeItem.id, fu, parentItem)}
+          onFollowUpDeleted={(updatedItem) => {
+            setItems((prev) =>
+              prev.map((i) => (i.id === updatedItem.id ? updatedItem : i))
+            );
+            setNudgeItem(updatedItem);
+          }}
         />
       )}
 
@@ -424,6 +459,14 @@ export default function KanbanBoard({ initialItems, currentUser }: KanbanBoardPr
           item={resolveItem}
           onClose={() => setResolveItem(null)}
           onResolved={handleItemResolved}
+        />
+      )}
+
+      {editItem && (
+        <EditItemModal
+          item={editItem}
+          onClose={() => setEditItem(null)}
+          onUpdated={handleItemUpdated}
         />
       )}
     </div>

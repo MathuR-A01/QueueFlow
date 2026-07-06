@@ -6,9 +6,10 @@ import { DEFAULT_LATENCY, ASK_TYPE_LABELS, COUNTERPARTY_TYPE_LABELS } from "@/li
 import type { AskType, CounterpartyType } from "@/lib/constants";
 import type { WaitingItemWithFollowUps } from "@/types";
 
-interface AddItemModalProps {
+interface EditItemModalProps {
+  item: WaitingItemWithFollowUps;
   onClose: () => void;
-  onAdded: (item: WaitingItemWithFollowUps) => void;
+  onUpdated: (item: WaitingItemWithFollowUps) => void;
 }
 
 const ASK_TYPES: AskType[] = [
@@ -25,14 +26,18 @@ const COUNTERPARTY_TYPES: CounterpartyType[] = [
   "INSTITUTION",
 ];
 
-export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
-  const [title, setTitle] = useState("");
-  const [counterpartyName, setCounterpartyName] = useState("");
+export default function EditItemModal({ item, onClose, onUpdated }: EditItemModalProps) {
+  const [title, setTitle] = useState(item.title);
+  const [counterpartyName, setCounterpartyName] = useState(item.counterpartyName);
   const [counterpartyType, setCounterpartyType] =
-    useState<CounterpartyType>("PERSON");
-  const [askType, setAskType] = useState<AskType>("REPLY");
-  const [expectedBy, setExpectedBy] = useState("");
-  const [notes, setNotes] = useState("");
+    useState<CounterpartyType>(item.counterpartyType as CounterpartyType);
+  const [askType, setAskType] = useState<AskType>(item.askType as AskType);
+  const [expectedBy, setExpectedBy] = useState(
+    item.expectedBy
+      ? new Date(item.expectedBy).toISOString().substring(0, 10)
+      : ""
+  );
+  const [notes, setNotes] = useState(item.notes || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,8 +52,8 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
     setError("");
 
     try {
-      const res = await fetch("/api/items", {
-        method: "POST",
+      const res = await fetch(`/api/items/${item.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
@@ -62,18 +67,18 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to create item");
+        throw new Error(data.error || "Failed to update item");
       }
 
       const data = await res.json();
-      const item = {
+      const updatedItem = {
         ...data.item,
         createdAt: new Date(data.item.createdAt),
         lastContactAt: new Date(data.item.lastContactAt),
         expectedBy: data.item.expectedBy ? new Date(data.item.expectedBy) : null,
-        followUps: [],
+        followUps: data.item.followUps.map((f: any) => ({ ...f, date: new Date(f.date) })),
       };
-      onAdded(item);
+      onUpdated(updatedItem);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -86,15 +91,15 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
 
   return (
     <div className="drawer-overlay">
-      <div className="drawer" role="dialog" aria-modal="true" aria-label="Add waiting item">
+      <div className="drawer" role="dialog" aria-modal="true" aria-label="Edit waiting item">
         <div className="drawer-header">
           <div>
-            <div className="drawer-title">Add Waiting Item</div>
+            <div className="drawer-title">Edit Waiting Item</div>
             <div className="drawer-subtitle">
-              Track something you&apos;re waiting on someone else for
+              Modify details for this blocked dependency
             </div>
           </div>
-          <button className="drawer-close" onClick={onClose} id="btn-add-modal-close">
+          <button className="drawer-close" onClick={onClose} id="btn-edit-modal-close">
             <X size={16} />
           </button>
         </div>
@@ -224,7 +229,7 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
               type="button"
               className="btn-secondary"
               onClick={onClose}
-              id="btn-add-cancel"
+              id="btn-edit-cancel"
             >
               Cancel
             </button>
@@ -232,15 +237,15 @@ export default function AddItemModal({ onClose, onAdded }: AddItemModalProps) {
               type="submit"
               className="btn-primary"
               disabled={isSubmitting}
-              id="btn-add-submit"
+              id="btn-edit-submit"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 size={13} className="spinner" />
-                  Adding...
+                  Saving...
                 </>
               ) : (
-                "Add to Waiting Room"
+                "Save Changes"
               )}
             </button>
           </div>
