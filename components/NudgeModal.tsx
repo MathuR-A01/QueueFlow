@@ -37,9 +37,7 @@ export default function NudgeModal({
 }: NudgeModalProps) {
   const [variants, setVariants] = useState<NudgeVariant[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedVariant, setSelectedVariant] = useState<NudgeVariant[] | NudgeVariant | null>(
-    null
-  );
+  const [selectedVariant, setSelectedVariant] = useState<NudgeVariant | null>(null);
   const [copiedTone, setCopiedTone] = useState<string | null>(null);
   const [isLogging, setIsLogging] = useState(false);
   const [isFallback, setIsFallback] = useState(false);
@@ -98,7 +96,7 @@ export default function NudgeModal({
 
   const handleLogFollowUp = async () => {
     // If selectedVariant is array or null, we check type
-    const variantObj = Array.isArray(selectedVariant) ? selectedVariant[0] : selectedVariant;
+    const variantObj = selectedVariant;
     if (!variantObj) return;
     setIsLogging(true);
 
@@ -395,29 +393,29 @@ export default function NudgeModal({
                       style={{ color: "#f43f5e", padding: "4px 8px", fontSize: "11px", height: "auto", minWidth: "fit-content" }}
                       onClick={async (e) => {
                         e.stopPropagation();
-                         if (confirm("Are you sure you want to delete this follow-up record? This will recalculate the card's last contact time.")) {
-                           try {
-                             const res = await fetch(`/api/items/${item.id}/followup`, {
-                               method: "DELETE",
-                               headers: { "Content-Type": "application/json" },
-                               body: JSON.stringify({ followUpId: fu.id }),
-                             });
-                             if (!res.ok) throw new Error("Failed to delete follow-up");
-                             const data = await res.json();
-                             if (data.parentItem) {
-                               const mappedItem = {
-                                 ...data.parentItem,
-                                 createdAt: new Date(data.parentItem.createdAt),
-                                 lastContactAt: new Date(data.parentItem.lastContactAt),
-                                 expectedBy: data.parentItem.expectedBy ? new Date(data.parentItem.expectedBy) : null,
-                                 followUps: data.parentItem.followUps.map((f: any) => ({ ...f, date: new Date(f.date) })),
-                               };
-                               onFollowUpDeleted(mappedItem);
-                             }
-                           } catch (err) {
-                             console.error("Delete follow-up error:", err);
-                           }
-                         }
+                        if (confirm("Are you sure you want to delete this follow-up record? This will recalculate the card's last contact time.")) {
+                          try {
+                            const res = await fetch(`/api/items/${item.id}/followup`, {
+                              method: "DELETE",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ followUpId: fu.id }),
+                            });
+                            if (!res.ok) throw new Error("Failed to delete follow-up");
+                            const data = await res.json();
+                            if (data.parentItem) {
+                              const mappedItem = {
+                                ...data.parentItem,
+                                createdAt: new Date(data.parentItem.createdAt),
+                                lastContactAt: new Date(data.parentItem.lastContactAt),
+                                expectedBy: data.parentItem.expectedBy ? new Date(data.parentItem.expectedBy) : null,
+                                followUps: data.parentItem.followUps.map((f: any) => ({ ...f, date: new Date(f.date) })),
+                              };
+                              onFollowUpDeleted(mappedItem);
+                            }
+                          } catch (err) {
+                            console.error("Delete follow-up error:", err);
+                          }
+                        }
                       }}
                     >
                       Delete
@@ -442,7 +440,7 @@ export default function NudgeModal({
               id="btn-log-followup"
               className="btn-primary"
               onClick={handleLogFollowUp}
-              disabled={(!selectedVariant || Array.isArray(selectedVariant) && selectedVariant.length === 0) || isLogging}
+              disabled={!selectedVariant || isLogging}
             >
               {isLogging ? (
                 <>
